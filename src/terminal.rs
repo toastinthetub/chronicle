@@ -6,7 +6,8 @@
 use crate::{
     constant::{
         CHRONICLE_RESOURCE_PATH, HORIZONTAL_LINE_HIGH, HORIZONTAL_LINE_LOW, LEFT_LOWER_SHOULDER,
-        LEFT_UPPER_SHOULDER, RIGHT_LOWER_SHOULDER, RIGHT_UPPER_SHOULDER, VERTICAL_LINE, WHITESPACE,
+        LEFT_UPPER_SHOULDER, MENU_OPTION_BROWSE_ENTRIES, MENU_OPTION_NEW_ENTRY, MENU_OPTION_QUIT,
+        RIGHT_LOWER_SHOULDER, RIGHT_UPPER_SHOULDER, VERTICAL_LINE, WHITESPACE,
     },
     entry::{DiaryEntries, Entry},
 };
@@ -50,11 +51,13 @@ pub struct CanvasState {
     pub size_y: u16,
 
     pub mode: Mode,
-    pub menu_options: Vec<MenuOption>,
+    pub idx_buf: i32,
 
     pub byte_buffer: [u8; 4],
     pub asset_buffer: Vec<String>,
     pub entry_buffer: EntryBuffer,
+
+    pub asset_buffer_flag: i32,
 }
 
 impl CanvasState {
@@ -84,11 +87,12 @@ impl CanvasState {
         let size_y = h;
 
         let mode: Mode = Mode::MainMenu;
-        let menu_options: Vec<MenuOption> = Vec::new();
-
+        let idx_buf: i32 = 0;
         let byte_buffer: [u8; 4] = [0u8; 4];
         let asset_buffer: Vec<String> = Vec::new();
         let entry_buffer: EntryBuffer = EntryBuffer::no_entry();
+
+        let asset_buffer_flag: i32 = 0;
 
         Ok(Self {
             stdout,
@@ -97,14 +101,13 @@ impl CanvasState {
             size_x,
             size_y,
             mode,
-            menu_options,
+            idx_buf,
             byte_buffer,
             asset_buffer,
             entry_buffer,
+            asset_buffer_flag,
         })
     }
-
-    pub fn populate_menu_options(&mut self) {}
 
     pub fn recalculate_dimensions(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let (w, h) = crossterm::terminal::size()?;
@@ -249,7 +252,88 @@ impl CanvasState {
             asset_y += 1;
         }
 
-        execute!(self.stdout, MoveDown(1))?; // TODO annihilate this
+        self.draw_main_menu_options()?;
+
+        Ok(())
+    }
+
+    pub fn draw_main_menu_options(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // use idx to figure out which of 3 options is selected, render it correctly.
+
+        let mut selected_buf: String = String::new();
+
+        let option_one_x = (self.size_x / 2) - (MENU_OPTION_NEW_ENTRY.len() as u16 / 2);
+        let option_two_x = (self.size_x / 2) - (MENU_OPTION_BROWSE_ENTRIES.len() as u16 / 2);
+        let option_three_x = (self.size_x / 2) - (MENU_OPTION_QUIT.len() as u16 / 2);
+
+        let option_two_y = (self.size_y / 2) - 1;
+
+        match self.idx_buf {
+            0 => {
+                //
+                selected_buf = MENU_OPTION_NEW_ENTRY.bold().black().on_white().to_string();
+
+                execute!(self.stdout, MoveTo(option_two_x, option_two_y - 1))?;
+                self.stdout.write_all(selected_buf.as_bytes())?;
+
+                execute!(self.stdout, MoveTo(option_two_x, option_two_y))?;
+                self.stdout
+                    .write_all(MENU_OPTION_BROWSE_ENTRIES.as_bytes())?;
+
+                execute!(self.stdout, MoveTo(option_two_x, option_two_y + 1))?;
+                self.stdout.write_all(MENU_OPTION_QUIT.as_bytes())?;
+            }
+            1 => {
+                //
+                selected_buf = MENU_OPTION_BROWSE_ENTRIES
+                    .bold()
+                    .black()
+                    .on_white()
+                    .to_string();
+
+                execute!(self.stdout, MoveTo(option_two_x, option_two_y - 1))?;
+                self.stdout.write_all(MENU_OPTION_NEW_ENTRY.as_bytes())?;
+
+                execute!(self.stdout, MoveTo(option_two_x, option_two_y))?;
+                self.stdout.write_all(selected_buf.as_bytes())?;
+
+                execute!(self.stdout, MoveTo(option_two_x, option_two_y + 1))?;
+                self.stdout.write_all(MENU_OPTION_QUIT.as_bytes())?;
+            }
+            2 => {
+                //
+                selected_buf = MENU_OPTION_QUIT.bold().black().on_white().to_string();
+
+                execute!(self.stdout, MoveTo(option_two_x, option_two_y - 1))?;
+                self.stdout.write_all(MENU_OPTION_NEW_ENTRY.as_bytes())?;
+
+                execute!(self.stdout, MoveTo(option_two_x, option_two_y))?;
+                self.stdout
+                    .write_all(MENU_OPTION_BROWSE_ENTRIES.as_bytes())?;
+
+                execute!(self.stdout, MoveTo(option_two_x, option_two_y + 1))?;
+                self.stdout.write_all(selected_buf.as_bytes())?;
+            }
+            _ => {
+                // do nothing, it should never be this.
+            }
+        }
+
+        // TEST {
+        let status: String = format!("idx: {}", self.idx_buf.clone());
+
+        execute!(
+            self.stdout,
+            MoveTo(
+                (self.size_x / 2) - status.len() as u16 / 2,
+                (self.size_y / 2) + ((self.size_y / 2) / 2) + 1
+            )
+        )?;
+
+        self.stdout.write_all(status.as_bytes())?;
+
+        // TEST }
+        self.stdout.flush()?;
 
         Ok(())
     }
@@ -260,6 +344,11 @@ impl CanvasState {
     }
 
     pub fn load_asset_buffer(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        if path == CHRONICLE_RESOURCE_PATH && self.asset_buffer_flag == 1 {
+            // sig for chronicle. this will not be implemented for every asset. i just wrote draw_main_menu() really badly
+            return Ok(());
+        }
+
         let mut str: String = String::new();
         let mut file: std::fs::File = std::fs::File::open(path)?;
         std::fs::File::read_to_string(&mut file, &mut str)?;
@@ -268,10 +357,10 @@ impl CanvasState {
 
         self.asset_buffer = lines;
 
-        Ok(())
-    }
+        if path == CHRONICLE_RESOURCE_PATH {
+            self.asset_buffer_flag = 1;
+        }
 
-    pub fn new_entry_fn(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 }
@@ -323,25 +412,5 @@ impl CharToBytes for char {
     fn to_bytes<'a>(&self, buffer: &'a mut [u8; 4]) -> &'a [u8] {
         let len = self.encode_utf8(buffer).len();
         &buffer[..len]
-    }
-}
-
-pub struct MenuOption {
-    pub str: String,
-    pub str_len: i32,
-    pub fn_pointer: fn(&mut CanvasState) -> Result<(), Box<dyn std::error::Error>>,
-}
-
-impl MenuOption {
-    pub fn new(
-        str: String,
-        fn_pointer: fn(&mut CanvasState) -> Result<(), Box<dyn std::error::Error>>,
-    ) -> Self {
-        let str_len = str.len() as i32;
-        Self {
-            str,
-            str_len,
-            fn_pointer,
-        }
     }
 }

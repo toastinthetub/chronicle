@@ -75,8 +75,57 @@ impl State {
                 crossterm::terminal::disable_raw_mode()?;
                 std::process::exit(0);
             }
-            _ => Ok(()),
+            crossterm::event::KeyCode::Up => {
+                match self.canvas.mode {
+                    // determine canvas mode and do different shit
+                    crate::terminal::Mode::MainMenu => {
+                        // while in terminal mode, do this shit
+                        if self.canvas.idx_buf <= 0 {
+                            // do nothing
+                            return Ok(());
+                        } else {
+                            self.canvas.idx_buf -= 1;
+                        }
+                    }
+
+                    crate::terminal::Mode::NewEntryMenu => {
+                        todo!()
+                    }
+
+                    crate::terminal::Mode::SelectExistingEntry => {
+                        todo!()
+                    }
+
+                    crate::terminal::Mode::EditEntry => {
+                        todo!()
+                    }
+                    _ => { // any other mode, do any of this shit
+                    }
+                }
+            }
+            crossterm::event::KeyCode::Down => match self.canvas.mode {
+                crate::terminal::Mode::MainMenu => {
+                    if self.canvas.idx_buf >= 2 {
+                        return Ok(());
+                    } else {
+                        self.canvas.idx_buf += 1;
+                    }
+                }
+                _ => {
+                    // all other states undefined
+                    todo!();
+                }
+            },
+            crossterm::event::KeyCode::Left => {
+                //
+            }
+            crossterm::event::KeyCode::Right => {
+                //
+            }
+            _ => {}
         }
+
+        Ok(())
     }
     pub fn handle_mouse_event(
         &mut self,
@@ -100,7 +149,8 @@ impl State {
 
     pub fn render(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.canvas.screen_square()?;
-        self.canvas.draw_main_menu()?;
+        self.canvas.draw_main_menu()?; // draw menu options from within canvas
+
         // simple render test
         /*
                 self.canvas
