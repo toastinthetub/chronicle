@@ -8,9 +8,18 @@ use argon2::{
     Argon2,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
+use std::fmt;
 
 #[derive(Debug)]
-pub struct EncryptionError(String);
+pub struct EncryptionError(pub String);
+
+impl fmt::Display for EncryptionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Encryption error: {}", self.0)
+    }
+}
+
+impl std::error::Error for EncryptionError {}
 
 pub fn encrypt_entry(password: &str, plaintext: &str) -> Result<String, EncryptionError> {
     let salt = SaltString::generate(&mut OsRng); // random salt
