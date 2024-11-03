@@ -33,12 +33,16 @@ use std::{
     io::{Lines, Read, Stdout, Write},
 };
 
+#[derive(PartialEq, Debug)]
 pub enum Mode {
     MainMenu,
     NewEntryMenu,
     SelectExistingEntry,
 
     EditEntry,
+    EditEntryNormalMode,
+    EditEntryInsertMode,
+    EditEntryCommand,
 }
 
 pub struct CanvasState {
@@ -105,7 +109,7 @@ impl CanvasState {
             byte_buffer,
             asset_buffer,
             entry_buffer,
-            asset_buffer_flag,
+            asset_buffer_flag, // prevents re-init of asset buffer
         })
     }
 
@@ -262,17 +266,26 @@ impl CanvasState {
 
         let mut selected_buf: String = String::new();
 
-        let option_one_x = (self.size_x / 2) - (MENU_OPTION_NEW_ENTRY.len() as u16 / 2);
+        // let option_one_x = (self.size_x / 2) - (MENU_OPTION_NEW_ENTRY.len() as u16 / 2);
         let option_two_x = (self.size_x / 2) - (MENU_OPTION_BROWSE_ENTRIES.len() as u16 / 2);
-        let option_three_x = (self.size_x / 2) - (MENU_OPTION_QUIT.len() as u16 / 2);
+        // let option_three_x = (self.size_x / 2) - (MENU_OPTION_QUIT.len() as u16 / 2);
 
         let option_two_y = (self.size_y / 2) - 1;
+
+        let str_max_len = MENU_OPTION_BROWSE_ENTRIES.len();
+
+        let extend_str = |s: &mut String| {
+            while s.len() < str_max_len {
+                s.push(WHITESPACE)
+            }
+        };
 
         match self.idx_buf {
             0 => {
                 //
-                selected_buf = MENU_OPTION_NEW_ENTRY.bold().black().on_white().to_string();
-
+                let mut str: String = String::from(MENU_OPTION_NEW_ENTRY);
+                extend_str(&mut str);
+                selected_buf = str.bold().black().on_white().to_string();
                 execute!(self.stdout, MoveTo(option_two_x, option_two_y - 1))?;
                 self.stdout.write_all(selected_buf.as_bytes())?;
 
@@ -285,11 +298,10 @@ impl CanvasState {
             }
             1 => {
                 //
-                selected_buf = MENU_OPTION_BROWSE_ENTRIES
-                    .bold()
-                    .black()
-                    .on_white()
-                    .to_string();
+                let mut str: String = String::from(MENU_OPTION_BROWSE_ENTRIES);
+                extend_str(&mut str);
+
+                selected_buf = str.bold().black().on_white().to_string();
 
                 execute!(self.stdout, MoveTo(option_two_x, option_two_y - 1))?;
                 self.stdout.write_all(MENU_OPTION_NEW_ENTRY.as_bytes())?;
@@ -302,7 +314,10 @@ impl CanvasState {
             }
             2 => {
                 //
-                selected_buf = MENU_OPTION_QUIT.bold().black().on_white().to_string();
+                let mut str: String = String::from(MENU_OPTION_QUIT);
+                extend_str(&mut str);
+
+                selected_buf = str.bold().black().on_white().to_string();
 
                 execute!(self.stdout, MoveTo(option_two_x, option_two_y - 1))?;
                 self.stdout.write_all(MENU_OPTION_NEW_ENTRY.as_bytes())?;
@@ -320,7 +335,7 @@ impl CanvasState {
         }
 
         // TEST {
-        let status: String = format!("idx: {}", self.idx_buf.clone());
+        let status: String = format!("idx: {} mode: {:?}", self.idx_buf.clone(), self.mode);
 
         execute!(
             self.stdout,
@@ -333,6 +348,19 @@ impl CanvasState {
         self.stdout.write_all(status.as_bytes())?;
 
         // TEST }
+        self.stdout.flush()?;
+
+        Ok(())
+    }
+
+    pub fn draw_entry_buffer(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let str = String::from("you have selected the new_entry option :)");
+        execute!(
+            self.stdout,
+            MoveTo((self.size_x / 2) - str.len() as u16 / 2, self.size_y / 2)
+        )?;
+        self.stdout.write_all(str.as_bytes())?;
+
         self.stdout.flush()?;
 
         Ok(())
@@ -377,6 +405,7 @@ pub struct EntryBuffer {
     pub size_x: u16,
     pub size_y: u16,
 
+    pub text_buffer: String,
     pub active_entry: Entry, // i need to rework the Entry struct before I write any of this.
 }
 
@@ -387,7 +416,7 @@ impl EntryBuffer {
 
         let size_x: u16 = 0;
         let size_y: u16 = 0;
-
+        let text_buffer: String = String::new();
         let active_entry: Entry = Entry::no_entry();
 
         Self {
@@ -395,12 +424,18 @@ impl EntryBuffer {
             zero_y,
             size_x,
             size_y,
+            text_buffer,
             active_entry,
         }
     }
 
     pub fn load_entry(&mut self, entry: Entry) {
         self.active_entry = entry;
+    }
+
+    pub fn new_entry(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        todo!();
+        Ok(())
     }
 }
 

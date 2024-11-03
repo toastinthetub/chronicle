@@ -15,11 +15,15 @@ use crate::{
 };
 
 use crossterm::{
+    cursor::MoveTo,
     event::{self, KeyEvent, MouseEvent},
     execute,
+    style::Stylize,
     terminal::{self, enable_raw_mode, Clear, ClearType, DisableLineWrap, EnterAlternateScreen},
     ExecutableCommand,
 };
+
+// TODO: Fix status bar, implement entrybuffer editing, more robust keyhandling
 
 pub struct State {
     pub canvas: CanvasState,
@@ -71,10 +75,48 @@ impl State {
         event: crossterm::event::KeyEvent,
     ) -> Result<(), Box<dyn std::error::Error>> {
         match event.code {
-            crossterm::event::KeyCode::Enter => {
+            crossterm::event::KeyCode::Esc => {
                 crossterm::terminal::disable_raw_mode()?;
                 std::process::exit(0);
             }
+            crossterm::event::KeyCode::Enter => {
+                match self.canvas.mode {
+                    crate::terminal::Mode::MainMenu => {
+                        match self.canvas.idx_buf {
+                            0 => {
+                                // new entry
+                                self.canvas.mode = crate::terminal::Mode::EditEntry
+                            }
+                            1 => {
+                                todo!();
+                            }
+                            2 => {
+                                todo!();
+                            }
+                            _ => {
+                                panic!("this was not supposed to happen.");
+                            }
+                        }
+                    }
+                    crate::terminal::Mode::EditEntry => {
+                        self.change_status_bar(String::from("you pressed enter!"))?;
+                    }
+                    crate::terminal::Mode::EditEntryCommand => {
+                        // TODO: SubmitCommand
+
+                        self.status.clear();
+                    }
+                    _ => {
+                        crossterm::terminal::disable_raw_mode()?;
+                        std::process::exit(0);
+                    }
+                }
+            }
+
+            crossterm::event::KeyCode::Char(c) => {
+                self.handle_char(c)?;
+            }
+
             crossterm::event::KeyCode::Up => {
                 match self.canvas.mode {
                     // determine canvas mode and do different shit
@@ -147,9 +189,66 @@ impl State {
         Ok(())
     }
 
+    pub fn handle_char(&mut self, c: char) -> Result<(), Box<dyn std::error::Error>> {
+        match c {
+            ':' => {
+                if self.canvas.mode == crate::terminal::Mode::EditEntry {
+                    self.canvas.mode = crate::terminal::Mode::EditEntryCommand
+                }
+            }
+
+            _ => match self.canvas.mode {
+                crate::terminal::Mode::EditEntryInsertMode => {
+                    self.canvas.entry_buffer.text_buffer.push(c);
+                }
+                crate::terminal::Mode::EditEntryCommand => {
+                    self.status.push(c);
+                }
+                _ => {}
+            },
+        }
+
+        Ok(())
+    }
+
+    pub fn change_status_bar(
+        &mut self,
+        mut new_status: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.status.clear();
+
+        while new_status.len() < self.canvas.size_x as usize - 2 {
+            new_status.push(crate::constant::WHITESPACE);
+        }
+
+        self.status = new_status.bold().black().on_white().to_string();
+        Ok(())
+    }
+
+    pub fn draw_status_bar(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        crossterm::execute!(
+            self.canvas.stdout,
+            MoveTo(self.canvas.zero_x + 1, self.canvas.zero_y + 1)
+        )?;
+        self.canvas.stdout.write_all(self.status.as_bytes())?;
+
+        Ok(())
+    }
+
     pub fn render(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.canvas.screen_square()?;
-        self.canvas.draw_main_menu()?; // draw menu options from within canvas
+        self.draw_status_bar()?;
+        match self.canvas.mode {
+            crate::terminal::Mode::MainMenu => {
+                self.canvas.draw_main_menu()?;
+            }
+
+            crate::terminal::Mode::EditEntry => {
+                self.canvas.draw_entry_buffer()?;
+            }
+
+            _ => {}
+        }
 
         // simple render test
         /*
