@@ -19,6 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut state: State = State::new().unwrap();
 
+    state.change_status_bar(String::from("this here is a status bar."))?;
     state.event_listener()?;
 
     /*
@@ -49,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn kill() {
-    let mut stdout = stdout();
-    crossterm::terminal::LeaveAlternateScreen;
+    // let mut stdout = stdout();
+    // crossterm::terminal::LeaveAlternateScreen;
     crossterm::terminal::disable_raw_mode().unwrap();
 }

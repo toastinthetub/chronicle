@@ -33,16 +33,29 @@ use std::{
     io::{Lines, Read, Stdout, Write},
 };
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Mode {
     MainMenu,
-    NewEntryMenu,
     SelectExistingEntry,
 
-    EditEntry,
     EditEntryNormalMode,
     EditEntryInsertMode,
-    EditEntryCommand,
+    EditEntryCommandMode,
+
+    QuitAll,
+}
+
+impl fmt::Display for Mode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Mode::MainMenu => write!(f, "MM"),
+            Mode::SelectExistingEntry => write!(f, "SE"),
+            Mode::EditEntryNormalMode => write!(f, "EN"),
+            Mode::EditEntryInsertMode => write!(f, "EI"),
+            Mode::EditEntryCommandMode => write!(f, "EC"),
+            Mode::QuitAll => write!(f, "QA"),
+        }
+    }
 }
 
 pub struct CanvasState {
@@ -55,6 +68,7 @@ pub struct CanvasState {
     pub size_y: u16,
 
     pub mode: Mode,
+    pub last_mode: Mode, // for returning to original state
     pub idx_buf: i32,
 
     pub byte_buffer: [u8; 4],
@@ -91,6 +105,7 @@ impl CanvasState {
         let size_y = h;
 
         let mode: Mode = Mode::MainMenu;
+        let last_mode: Mode = Mode::MainMenu;
         let idx_buf: i32 = 0;
         let byte_buffer: [u8; 4] = [0u8; 4];
         let asset_buffer: Vec<String> = Vec::new();
@@ -105,6 +120,7 @@ impl CanvasState {
             size_x,
             size_y,
             mode,
+            last_mode,
             idx_buf,
             byte_buffer,
             asset_buffer,

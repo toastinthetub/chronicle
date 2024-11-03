@@ -84,27 +84,27 @@ impl State {
                     crate::terminal::Mode::MainMenu => {
                         match self.canvas.idx_buf {
                             0 => {
-                                // new entry
-                                self.canvas.mode = crate::terminal::Mode::EditEntry
+                                // new entry, must enter entry_editor()
+                                self.change_mode(crate::terminal::Mode::EditEntryNormalMode)?;
                             }
                             1 => {
-                                todo!();
+                                self.change_mode(crate::terminal::Mode::SelectExistingEntry)?;
                             }
                             2 => {
-                                todo!();
+                                // TODO
                             }
                             _ => {
                                 panic!("this was not supposed to happen.");
                             }
                         }
                     }
-                    crate::terminal::Mode::EditEntry => {
+                    crate::terminal::Mode::EditEntryNormalMode => {
                         self.change_status_bar(String::from("you pressed enter!"))?;
                     }
-                    crate::terminal::Mode::EditEntryCommand => {
+                    crate::terminal::Mode::EditEntryCommandMode => {
                         // TODO: SubmitCommand
-
-                        self.status.clear();
+                        self.change_status_bar(String::from("you submitted a command!"))?;
+                        //self.clear_status_bar()?;
                     }
                     _ => {
                         crossterm::terminal::disable_raw_mode()?;
@@ -114,6 +114,7 @@ impl State {
             }
 
             crossterm::event::KeyCode::Char(c) => {
+                // handle those characters, bitch
                 self.handle_char(c)?;
             }
 
@@ -130,34 +131,43 @@ impl State {
                         }
                     }
 
-                    crate::terminal::Mode::NewEntryMenu => {
-                        todo!()
+                    crate::terminal::Mode::EditEntryNormalMode => {
+                        // do nothing
+                    }
+
+                    crate::terminal::Mode::EditEntryInsertMode => {
+                        // do nothing
+                    }
+
+                    crate::terminal::Mode::EditEntryCommandMode => {
+                        // do nothing
                     }
 
                     crate::terminal::Mode::SelectExistingEntry => {
-                        todo!()
+                        // do nothing
                     }
 
-                    crate::terminal::Mode::EditEntry => {
-                        todo!()
-                    }
                     _ => { // any other mode, do any of this shit
                     }
                 }
             }
-            crossterm::event::KeyCode::Down => match self.canvas.mode {
-                crate::terminal::Mode::MainMenu => {
-                    if self.canvas.idx_buf >= 2 {
-                        return Ok(());
-                    } else {
-                        self.canvas.idx_buf += 1;
+
+            // keycode::down. there has got to be a better way to do this
+            crossterm::event::KeyCode::Down => {
+                match self.canvas.mode {
+                    crate::terminal::Mode::MainMenu => {
+                        if self.canvas.idx_buf >= 2 {
+                            return Ok(());
+                        } else {
+                            self.canvas.idx_buf += 1;
+                        }
+                    }
+                    _ => {
+                        // all other states undefined
+                        // TODO
                     }
                 }
-                _ => {
-                    // all other states undefined
-                    todo!();
-                }
-            },
+            }
             crossterm::event::KeyCode::Left => {
                 //
             }
@@ -190,10 +200,13 @@ impl State {
     }
 
     pub fn handle_char(&mut self, c: char) -> Result<(), Box<dyn std::error::Error>> {
+        // this is it sluts, we're handling characters
+
         match c {
             ':' => {
-                if self.canvas.mode == crate::terminal::Mode::EditEntry {
-                    self.canvas.mode = crate::terminal::Mode::EditEntryCommand
+                if self.canvas.mode == crate::terminal::Mode::EditEntryNormalMode {
+                    self.canvas.last_mode = self.canvas.mode.clone();
+                    self.change_mode(crate::terminal::Mode::EditEntryCommandMode)?;
                 }
             }
 
@@ -201,7 +214,7 @@ impl State {
                 crate::terminal::Mode::EditEntryInsertMode => {
                     self.canvas.entry_buffer.text_buffer.push(c);
                 }
-                crate::terminal::Mode::EditEntryCommand => {
+                crate::terminal::Mode::EditEntryCommandMode => {
                     self.status.push(c);
                 }
                 _ => {}
@@ -211,17 +224,47 @@ impl State {
         Ok(())
     }
 
+    pub fn change_mode(
+        &mut self,
+        mode: crate::terminal::Mode,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.canvas.mode = mode;
+        self.change_status_bar(self.status.clone())?;
+
+        Ok(())
+    }
+
     pub fn change_status_bar(
         &mut self,
         mut new_status: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self.status.clear();
+        /*        if self.status == new_status {
+                    return Ok(());
+                }
+        */
 
-        while new_status.len() < self.canvas.size_x as usize - 2 {
-            new_status.push(crate::constant::WHITESPACE);
+        // if we already have a mode, remove it
+        let first_five = new_status[..5].to_string();
+        if first_five.contains(" - ") {
+            new_status = new_status[5..].to_string()
         }
 
-        self.status = new_status.bold().black().on_white().to_string();
+        // TODO: FIX STATUS
+
+        self.status.clear();
+
+        let mut str = format!("{} - {}", self.canvas.mode, new_status);
+
+        while str.len() < self.canvas.size_x as usize - 2 {
+            str.push(crate::constant::WHITESPACE);
+        }
+
+        self.status = str.bold().black().on_white().to_string();
+        Ok(())
+    }
+
+    pub fn clear_status_bar(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.change_status_bar(String::from(""))?;
         Ok(())
     }
 
@@ -238,13 +281,24 @@ impl State {
     pub fn render(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.canvas.screen_square()?;
         self.draw_status_bar()?;
+
+        // decide which buffer to draw
         match self.canvas.mode {
             crate::terminal::Mode::MainMenu => {
                 self.canvas.draw_main_menu()?;
             }
 
-            crate::terminal::Mode::EditEntry => {
+            crate::terminal::Mode::EditEntryNormalMode => {
                 self.canvas.draw_entry_buffer()?;
+            }
+
+            crate::terminal::Mode::EditEntryInsertMode => {
+                self.canvas.draw_entry_buffer()?;
+            }
+
+            crate::terminal::Mode::EditEntryCommandMode => {
+                self.canvas.draw_entry_buffer()?;
+                // do something
             }
 
             _ => {}
