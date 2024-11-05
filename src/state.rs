@@ -91,7 +91,7 @@ impl State {
                                 self.change_mode(crate::terminal::Mode::SelectExistingEntry)?;
                             }
                             2 => {
-                                // TODO
+                                self.change_mode(crate::terminal::Mode::QuitAll)?;
                             }
                             _ => {
                                 panic!("this was not supposed to happen.");
@@ -99,12 +99,18 @@ impl State {
                         }
                     }
                     crate::terminal::Mode::EditEntryNormalMode => {
-                        self.change_status_bar(String::from("you pressed enter!"))?;
+                        // do nothing in normal mode, possibly move cursor down
                     }
                     crate::terminal::Mode::EditEntryCommandMode => {
                         // TODO: SubmitCommand
                         self.change_status_bar(String::from("you submitted a command!"))?;
                         //self.clear_status_bar()?;
+                    }
+                    crate::terminal::Mode::SelectExistingEntry => {
+                        self.change_status_bar(String::from("you are selecting an entry!"))?;
+                    }
+                    crate::terminal::Mode::QuitAll => {
+                        self.change_status_bar(String::from("you quit!"))?;
                     }
                     _ => {
                         crossterm::terminal::disable_raw_mode()?;
@@ -265,6 +271,7 @@ impl State {
 
     pub fn clear_status_bar(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.change_status_bar(String::from(""))?;
+
         Ok(())
     }
 
@@ -299,6 +306,12 @@ impl State {
             crate::terminal::Mode::EditEntryCommandMode => {
                 self.canvas.draw_entry_buffer()?;
                 // do something
+            }
+            crate::terminal::Mode::SelectExistingEntry => {
+                self.canvas.draw_selection_buffer()?;
+            }
+            crate::terminal::Mode::QuitAll => {
+                self.canvas.draw_quit_buffer()?;
             }
 
             _ => {}

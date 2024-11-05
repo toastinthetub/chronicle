@@ -382,6 +382,26 @@ impl CanvasState {
         Ok(())
     }
 
+    pub fn draw_selection_buffer(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let str = String::from("you are selecting an entry! :)");
+        execute!(
+            self.stdout,
+            MoveTo((self.size_x / 2) - str.len() as u16 / 2, self.size_y / 2)
+        )?;
+        self.stdout.write_all(str.as_bytes())?;
+
+        self.stdout.flush()?;
+
+        Ok(())
+    }
+
+    pub fn draw_quit_buffer(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut stdout = std::io::stdout();
+        crossterm::terminal::disable_raw_mode()?;
+        execute!(stdout, LeaveAlternateScreen)?;
+        std::process::exit(0);
+    }
+
     pub fn clear(&self) {
         let mut stdout: Stdout = std::io::stdout();
         execute!(stdout, Clear(ClearType::All)).unwrap();
