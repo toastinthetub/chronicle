@@ -12,6 +12,8 @@ use crate::{
     entry::{DiaryEntries, Entry},
 };
 
+use regex::Regex;
+
 use aes_gcm::aes::cipher::typenum::assert_type;
 use crossterm::cursor::{
     DisableBlinking, Hide, MoveLeft, MoveToColumn, MoveToNextLine, SetCursorStyle,
@@ -404,7 +406,7 @@ impl CanvasState {
 
     pub fn clear(&self) {
         let mut stdout: Stdout = std::io::stdout();
-        execute!(stdout, Clear(ClearType::All)).unwrap();
+        execute!(stdout, Clear(ClearType::All)).unwrap(); // this unwrap() shouldnt be here but good lord i use it everywhere
     }
 
     pub fn load_asset_buffer(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -484,4 +486,26 @@ impl CharToBytes for char {
         let len = self.encode_utf8(buffer).len();
         &buffer[..len]
     }
+}
+
+// this function will never ever be used i don't think
+pub fn trim_n_after_escape(s: &str, n: usize) -> String {
+    let re = Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+
+    let mut start_index = 0;
+    let mut result = String::new();
+
+    for mat in re.find_iter(s) {
+        if mat.start() == start_index {
+            result.push_str(mat.as_str());
+            start_index = mat.end();
+        } else {
+            break;
+        }
+    }
+
+    let visible_text = &s[start_index..];
+    let trimmed_text: String = visible_text.chars().skip(n).collect();
+
+    result + &trimmed_text
 }

@@ -6,7 +6,7 @@
 //        abstract too close to the sun...perhaps write a small TUI
 //        library that sits on top of Crossterm for UI. Yes. I like.
 
-use std::io::Write;
+use std::{backtrace::BacktraceStatus, io::Write};
 
 use crate::{
     constant::{HORIZONTAL_LINE_LOW, LEFT_UPPER_SHOULDER},
@@ -14,6 +14,9 @@ use crate::{
     terminal::{CanvasState, EntryBuffer},
 };
 
+use regex::Regex;
+
+use aes_gcm::aes::cipher::StreamCipherCoreWrapper;
 use crossterm::{
     cursor::MoveTo,
     event::{self, KeyEvent, MouseEvent},
@@ -235,11 +238,20 @@ impl State {
         mode: crate::terminal::Mode,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.canvas.mode = mode;
-        self.change_status_bar(self.status.clone())?;
+
+        let mut status = self.status[..5].to_string();
+        if status.contains(" - ") {
+            status = self.status[5..].to_string();
+        } else {
+            status = self.status.clone();
+        }
+        self.change_status_bar(status)?;
 
         Ok(())
     }
 
+    // this is such a fucking ugly hack, but the compiler makes it fast enough for me
+    // to not care enough to make a Status struct properly. Some other commit.
     pub fn change_status_bar(
         &mut self,
         mut new_status: String,
@@ -249,13 +261,27 @@ impl State {
                 }
         */
 
-        // if we already have a mode, remove it
-        let first_five = new_status[..5].to_string();
-        if first_five.contains(" - ") {
-            new_status = new_status[5..].to_string()
+        let n = 5;
+
+        let re = Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+
+        let mut start_index = 0;
+        let mut result = String::new();
+
+        for mat in re.find_iter(&new_status) {
+            if mat.start() == start_index {
+                result.push_str(mat.as_str());
+                start_index = mat.end();
+            } else {
+                break;
+            }
         }
 
-        // TODO: FIX STATUS
+        let visible_text = &new_status[start_index..];
+        let trimmed_text: String = visible_text.chars().skip(n).collect();
+
+        new_status.clear();
+        new_status.push_str(&trimmed_text);
 
         self.status.clear();
 
@@ -274,7 +300,7 @@ impl State {
 
         Ok(())
     }
-
+    // MULTIPLES OF 5
     pub fn draw_status_bar(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         crossterm::execute!(
             self.canvas.stdout,
@@ -331,3 +357,5 @@ impl State {
         Ok(())
     }
 }
+
+// TODO: Put this in a different file
