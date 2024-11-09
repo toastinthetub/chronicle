@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
+use chrono::Local;
+
 use crate::encrypt::{decrypt_entry, encrypt_entry, EncryptionError};
 
 pub struct Entry {
@@ -17,6 +19,18 @@ impl Entry {
             edit_buffer: String::new(),
         }
     }
+
+    pub fn create_new_entry() -> Result<Self, Box<dyn std::error::Error>> {
+        let title: String = format!("UNTITLED_{}", Local::now().format("%m-%d-%Y"));
+        let contents: String = String::new();
+        let edit_buffer: String = String::new();
+        Ok(Self {
+            title,
+            contents,
+            edit_buffer,
+        })
+    }
+
     pub fn construct_from_str(s: &str, t: &str) -> Result<Entry, Box<dyn std::error::Error>> {
         let timestamp: String = chrono::Utc::now().format("[%Y-%m-%d %H:%M]").to_string();
         let title: String = format!("{}{}", t.to_owned(), timestamp);
