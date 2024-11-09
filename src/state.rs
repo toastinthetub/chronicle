@@ -78,10 +78,14 @@ impl State {
         event: crossterm::event::KeyEvent,
     ) -> Result<(), Box<dyn std::error::Error>> {
         match event.code {
-            crossterm::event::KeyCode::Esc => {
-                crossterm::terminal::disable_raw_mode()?;
-                std::process::exit(0);
-            }
+            crossterm::event::KeyCode::Esc => match self.canvas.mode {
+                crate::terminal::Mode::MainMenu => {
+                    self.change_mode(crate::terminal::Mode::QuitAll)?;
+                }
+                _ => {
+                    self.change_mode(self.canvas.last_mode.clone())?;
+                }
+            },
             crossterm::event::KeyCode::Enter => {
                 match self.canvas.mode {
                     crate::terminal::Mode::MainMenu => {
@@ -218,6 +222,20 @@ impl State {
                     self.change_mode(crate::terminal::Mode::EditEntryCommandMode)?;
                 }
             }
+            'i' => {
+                match self.canvas.mode {
+                    crate::terminal::Mode::MainMenu => {
+                        // do nothing
+                    }
+                    crate::terminal::Mode::EditEntryNormalMode => {
+                        self.change_mode(crate::terminal::Mode::EditEntryInsertMode)?;
+                    }
+
+                    _ => {
+                        // do absolutely nothing!
+                    }
+                }
+            }
 
             _ => match self.canvas.mode {
                 crate::terminal::Mode::EditEntryInsertMode => {
@@ -239,14 +257,7 @@ impl State {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.canvas.mode = mode;
 
-        let mut status = self.status[..5].to_string();
-        if status.contains(" - ") {
-            status = self.status[5..].to_string();
-        } else {
-            status = self.status.clone();
-        }
-        self.change_status_bar(status)?;
-
+        self.change_status_bar(String::from(""))?;
         Ok(())
     }
 
@@ -259,7 +270,6 @@ impl State {
         /*        if self.status == new_status {
                     return Ok(());
                 }
-        */
 
         let n = 5;
 
@@ -282,6 +292,10 @@ impl State {
 
         new_status.clear();
         new_status.push_str(&trimmed_text);
+
+        self.status.clear();
+
+        */
 
         self.status.clear();
 

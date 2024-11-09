@@ -73,6 +73,9 @@ pub struct CanvasState {
     pub last_mode: Mode, // for returning to original state
     pub idx_buf: i32,
 
+    pub entry_search_buffer: String,
+    pub text_buffer: String,
+
     pub byte_buffer: [u8; 4],
     pub asset_buffer: Vec<String>,
     pub entry_buffer: EntryBuffer,
@@ -109,6 +112,10 @@ impl CanvasState {
         let mode: Mode = Mode::MainMenu;
         let last_mode: Mode = Mode::MainMenu;
         let idx_buf: i32 = 0;
+
+        let entry_search_buffer: String = String::new();
+        let text_buffer: String = String::new();
+
         let byte_buffer: [u8; 4] = [0u8; 4];
         let asset_buffer: Vec<String> = Vec::new();
         let entry_buffer: EntryBuffer = EntryBuffer::no_entry();
@@ -124,6 +131,10 @@ impl CanvasState {
             mode,
             last_mode,
             idx_buf,
+
+            entry_search_buffer,
+            text_buffer,
+
             byte_buffer,
             asset_buffer,
             entry_buffer,
