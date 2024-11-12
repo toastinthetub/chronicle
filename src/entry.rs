@@ -1,7 +1,6 @@
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
-
-use chrono::Local;
 
 use crate::encrypt::{decrypt_entry, encrypt_entry, EncryptionError};
 
@@ -65,6 +64,7 @@ impl Entry {
         };
         Ok(())
     }
+
     pub fn decrypt_self(&mut self, password: String) -> Result<(), EncryptionError> {
         match decrypt_entry(&password, &self.contents) {
             Ok(decrypted_contents) => self.contents.replace_range(.., &decrypted_contents),
@@ -78,7 +78,6 @@ impl Entry {
         }
         Ok(())
     }
-    // TODO: figure out what else to do with this struct
 }
 
 #[derive(Serialize, Deserialize)]
@@ -94,6 +93,7 @@ impl SerializableEntry {
             contents: entry.contents,
         }
     }
+
     pub fn to_entry(self) -> Entry {
         Entry {
             title: self.title,
@@ -114,9 +114,8 @@ impl DiaryEntries {
             entries: Vec::new(),
         }
     }
-    pub fn safe_open(filepath: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        // TODO: implement safe_open()
 
+    pub fn safe_open(filepath: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let json_str: String = match std::fs::read_to_string(filepath) {
             Ok(json_str) => json_str,
             Err(e) => {
@@ -134,10 +133,73 @@ impl DiaryEntries {
 
         Ok(deserialized)
     }
-    pub fn safe_close() -> Result<(), Box<dyn std::error::Error>> {
-        todo!() // TODO: implement safe_close()
+
+    pub fn load_from_directory<P: AsRef<Path>>(
+        path: P,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut entries = Vec::new();
+
+        // Read directory and process .entry files
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            // Check if file ends with .entry
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("entry") {
+                // Read and deserialize the file
+                match std::fs::read_to_string(&path) {
+                    Ok(contents) => match serde_json::from_str::<SerializableEntry>(&contents) {
+                        Ok(entry) => entries.push(entry),
+                        Err(e) => eprintln!("Failed to deserialize {}: {}", path.display(), e),
+                    },
+                    Err(e) => eprintln!("Failed to read {}: {}", path.display(), e),
+                }
+            }
+        }
+
+        Ok(Self { entries })
     }
-    // TODO: implement serialization of entires
-    // TODO: implement deserialization of entries
-    // TODO: implement appending entries to existing diary
+
+    pub fn save_entry<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+        entry: Entry,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let serializable = SerializableEntry::from_entry(entry);
+
+        // Serialize the entry
+        let serialized = serde_json::to_string_pretty(&serializable)?;
+
+        // Write to file
+        fs::write(path, serialized)?;
+
+        // Add to collection
+        self.entries.push(serializable);
+
+        Ok(())
+    }
+
+    pub fn safe_close(&self, filepath: &str) -> Result<(), Box<dyn std::error::Error>> {
+        // Serialize the entire DiaryEntries struct
+        let serialized = serde_json::to_string_pretty(&self)?;
+
+        // Write to file
+        fs::write(filepath, serialized)?;
+
+        Ok(())
+    }
+
+    pub fn search_by_title(&self, query: &str) -> Vec<Entry> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.title.to_lowercase().contains(&query.to_lowercase()))
+            .map(|e| {
+                SerializableEntry {
+                    title: e.title.clone(),
+                    contents: e.contents.clone(),
+                }
+                .to_entry()
+            })
+            .collect()
+    }
 }

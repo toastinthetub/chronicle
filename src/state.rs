@@ -31,6 +31,7 @@ use crossterm::{
 pub struct State {
     pub canvas: CanvasState,
     pub status: String,
+    pub text_reg: String,
 }
 
 impl State {
@@ -43,7 +44,12 @@ impl State {
             }
         };
         let status: String = String::new();
-        Ok(Self { canvas, status })
+        let text_reg: String = String::new();
+        Ok(Self {
+            canvas,
+            status,
+            text_reg,
+        })
     }
 
     pub fn event_listener(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -107,6 +113,9 @@ impl State {
                     }
                     crate::terminal::Mode::EditEntryNormalMode => {
                         // do nothing in normal mode, possibly move cursor down
+                    }
+                    crate::terminal::Mode::EditEntryInsertMode => {
+                        self.canvas.entry_buffer.text_buffer.push('\n');
                     }
                     crate::terminal::Mode::EditEntryCommandMode => {
                         // TODO: SubmitCommand
@@ -222,7 +231,7 @@ impl State {
                     self.change_mode(crate::terminal::Mode::EditEntryCommandMode)?;
                 }
             }
-            'i' => {
+            'i' if self.canvas.mode != crate::terminal::Mode::EditEntryInsertMode => {
                 match self.canvas.mode {
                     crate::terminal::Mode::MainMenu => {
                         // do nothing

@@ -383,13 +383,18 @@ impl CanvasState {
     }
 
     pub fn draw_entry_buffer(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let str = String::from("you have selected the new_entry option :)");
+        /* let str = String::from("you have selected the new_entry option :)");
         execute!(
             self.stdout,
             MoveTo((self.size_x / 2) - str.len() as u16 / 2, self.size_y / 2)
         )?;
         self.stdout.write_all(str.as_bytes())?;
 
+        self.stdout.flush()?;
+        */
+
+        execute!(self.stdout, MoveTo(self.zero_x + 1, self.zero_y + 2))?;
+        print!("{}", self.entry_buffer.text_buffer);
         self.stdout.flush()?;
 
         Ok(())
