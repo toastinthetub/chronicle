@@ -70,14 +70,12 @@ impl State {
                     }
                     _ => {
                         panic!("unhandled event.");
-                        break;
                     }
                 }
             }
             self.canvas.clear();
             self.render()?;
         }
-        Ok(())
     }
     pub fn handle_key_event(
         &mut self,
@@ -119,6 +117,10 @@ impl State {
                     }
                     crate::terminal::Mode::EditEntryCommandMode => {
                         // TODO: SubmitCommand
+                        self.change_mode(
+                            /* crate::terminal::Mode::EditEntryNormalMode */
+                            self.canvas.last_mode.clone(),
+                        )?;
                         self.change_status_bar(String::from("you submitted a command!"))?;
                         //self.clear_status_bar()?;
                     }
@@ -229,6 +231,8 @@ impl State {
                 if self.canvas.mode == crate::terminal::Mode::EditEntryNormalMode {
                     self.canvas.last_mode = self.canvas.mode.clone();
                     self.change_mode(crate::terminal::Mode::EditEntryCommandMode)?;
+                } else {
+                    self.canvas.entry_buffer.push_char(&c);
                 }
             }
             'i' if self.canvas.mode != crate::terminal::Mode::EditEntryInsertMode => {
@@ -241,7 +245,7 @@ impl State {
                     }
 
                     _ => {
-                        // do absolutely nothing!
+                        self.canvas.entry_buffer.push_char(&c);
                     }
                 }
             }
@@ -264,6 +268,7 @@ impl State {
         &mut self,
         mode: crate::terminal::Mode,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        self.canvas.last_mode = self.canvas.mode.clone();
         self.canvas.mode = mode;
 
         self.change_status_bar(String::from(""))?;
@@ -308,7 +313,7 @@ impl State {
 
         self.status.clear();
 
-        let mut str = format!("{} - {}", self.canvas.mode, new_status);
+        let mut str = format!("{} - {} | ", self.canvas.mode, new_status);
 
         while str.len() < self.canvas.size_x as usize - 2 {
             str.push(crate::constant::WHITESPACE);
@@ -318,12 +323,25 @@ impl State {
         Ok(())
     }
 
+    pub fn push_to_status_bar(&mut self, str: String) -> Result<(), Box<dyn std::error::Error>> {
+        let s = self.status.clone().split('|').map(|(_, after)| after);
+
+        let s1 = self
+            .status
+            .clone()
+            .split('-')
+            .next()
+            .unwrap_or(&self.status);
+
+        Ok(())
+    }
+
     pub fn clear_status_bar(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.change_status_bar(String::from(""))?;
 
         Ok(())
     }
-    // MULTIPLES OF 5
+    // MULTIPLES OF 5 // what the fuck was i talking about here?
     pub fn draw_status_bar(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         crossterm::execute!(
             self.canvas.stdout,

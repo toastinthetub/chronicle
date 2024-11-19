@@ -491,6 +491,11 @@ impl EntryBuffer {
         todo!();
         Ok(())
     }
+
+    pub fn push_char(&mut self, c: &char) {
+        let num_newline_char = self.text_buffer.bytes().filter(|&b| b == b'\n').count();
+        self.text_buffer.push(*c);
+    }
 }
 
 pub trait CharToBytes {
